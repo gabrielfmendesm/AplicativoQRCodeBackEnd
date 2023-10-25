@@ -5,7 +5,6 @@ from datetime import datetime
 import pymongo
 import certifi
 
-
 # Conectando ao servidor do MongoDB
 str_con = "mongodb+srv://admin:admin@aplicativoqrcode.mmjtjk8.mongodb.net/?retryWrites=true&w=majority"
 client_con = pymongo.MongoClient(str_con, tlsCAFile=certifi.where())
@@ -300,6 +299,9 @@ def testar_acesso(id_usuario, id_porta):
         login_usuario = usuario["login"]
         excessoes = porta["excecoes"]
 
+        # Obtendo a data e hora atual
+        data_hora = datetime.now()
+
         # Verificando se o usuário tem permissão para acessar a porta
         if nivel_permissao_usuario >= nivel_permissao_porta:
             acesso = "ACESSO LIBERADO"
@@ -311,9 +313,6 @@ def testar_acesso(id_usuario, id_porta):
         # Caso o usuário não tenha permissão, retorna a mensagem de erro
         else:
             acesso = "ACESSO NEGADO"
-        
-        # Obtendo a data e hora atual
-        data_hora = datetime.now()
 
         # Criando o dicionário com os dados do acesso
         relatorio = {
@@ -333,23 +332,20 @@ def testar_acesso(id_usuario, id_porta):
     # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
-    
+
 
 # Rota para gerar um QR Code
-@app.route("/qrcode/usuario/<id_usuario>", methods = ["GET"])
-def gerar_qrcode(id_usuario):
+@app.route("/qrcode/usuario/<login_usuario>", methods = ["GET"])
+def gerar_qrcode(login_usuario):
     # Tenta executar o código
     try:
-        # Obtendo o ID do usuário
-        id_usuario = ObjectId(id_usuario)
-
-        # Encontrando o usuário no banco de dados
-        usuario = usuarios.find_one({"_id": id_usuario})
+        # Obtendo o usuário
+        usuario = usuarios.find_one({"login": login_usuario})
 
         # Verificando se o usuário existe
         if usuario == None:
             return {"erro": "Usuário não encontrado"}, 404
-        
+
         # Criando o diciário com os dados do usuário
         dados = {
             "login": usuario["login"],
