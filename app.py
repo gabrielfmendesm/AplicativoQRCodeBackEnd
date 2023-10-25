@@ -1,115 +1,381 @@
+from flask import Flask, request
+from bson.objectid import ObjectId
+from datetime import datetime
 import pymongo
-from flask import Flask, request, jsonify
-import json
-from bson import ObjectId
-from pymongo import MongoClient, UpdateOne
-# Retirar na versão final
 import certifi
-
 
 # Conectando ao servidor do MongoDB
 str_con = "mongodb+srv://admin:admin@aplicativoqrcode.mmjtjk8.mongodb.net/?retryWrites=true&w=majority"
 client_con = pymongo.MongoClient(str_con, tlsCAFile=certifi.where())
 
 # Selecionando as databases e as collections
-usuarios_col = client_con.usuarios.col_usuarios
-portas_col = client_con.portas.col_portas
-# Iniciando o Flask
+usuarios = client_con.db_aplicativo.usuarios
+portas = client_con.db_aplicativo.portas
+relatorios = client_con.db_aplicativo.relatorios
+
+# Criando o app Flask
 app = Flask("Aplicativo QR Code")
 
-# Rota teste
-@app.route("/")
-def teste():
-    return "Aplicativo QR Code"
 
+# Rota para cadastrar um usuário
 @app.route("/usuario", methods = ["POST"])
-def cadastra_usuario():
+def cadastrar_usuario():
+    # Tenta executar o código
     try:
-        request_data = request.json
-        if "nome" not in request_data or request_data["nome"] == "":
-            return {"mensagem":"Nome do usuario não informado"}, 400
-        if "permissao" not in request_data or request_data["permissao"] == "":
-            return {"mensagem": "Nível de permissão do usuário não informado"}, 400
-
-        nome = request_data["nome"]
-        permissao = request_data["permissao"]
-
-        mydb = client_con["usuarios"]
-        mycol = mydb["col_usuarios"]
-        mydict = { "nome": nome,
-                  "permissao": permissao}
-        x = mycol.insert_one(mydict)
-
-        return jsonify({"mensagem":"Usário cadastrado"}), 200
+        # Obtendo os dados do usuário
+        dados = request.get_json()
         
+        # Verificando se os dados foram informados
+        if "login" not in dados or dados["login"] == "":
+            return {"erro": "Login do usuário não informado"}, 400
+        if "nome" not in dados or dados["nome"] == "":
+            return {"erro": "Nome do usuário não informado"}, 400
+        if "permissao" not in dados or dados["permissao"] == "":
+            return {"erro": "Nível de permissão do usuário não informado"}, 400
+        
+        # Verificando se o login e nome são strings e se a permissão é um número
+        if type(dados["login"]) != str or type(dados["nome"]) != str or type(dados["permissao"]) != int:
+            return {"erro": "Login e nome devem ser strings e permissão deve ser um número"}, 400
+        
+        # Verificando se o usuário já existe
+        filtro = {
+            "login": dados["login"]
+        }
+
+        # Verificando se o usuário já existe
+        usuario = usuarios.find_one(filtro)
+        if usuario != None:
+            return {"erro": "Usuário já cadastrado"}, 400
+        
+        # Obtendo os dados do usuário
+        login = dados["login"]
+        nome = dados["nome"]
+        permissao = dados["permissao"]
+
+        # Criando o dicionário com os dados do usuário
+        usuario = {
+            "login": login,
+            "nome": nome,
+            "permissao": permissao
+        }
+
+        # Inserindo o usuário no banco de dados
+        id_usuario = usuarios.insert_one(usuario).inserted_id
+
+        # Retornando a mensagem de sucesso
+        return {"mensagem": "Usuário cadastrado com sucesso", "id_usuario": str(id_usuario)}, 200
+    
+    # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
+
+
+# Rota para editar um usuário
+@app.route("/usuario/<id_usuario>", methods = ["PUT"])
+def editar_usuario(id_usuario):
+    # Tenta executar o código
+    try:
+        # Obtendo os dados do usuário
+        dados = request.get_json()
+
+        # Verificando se a permissão foi informada
+        if "permissao" not in dados or dados["permissao"] == "":
+            return {"erro": "Nível de permissão do usuário não informado"}, 400
+        
+        # Verificando se a permissão é um número
+        if type(dados["permissao"]) != int:
+            return {"erro": "Permissão deve ser um número"}, 400
+        
+        # Verificando se o ID do usuário é válido
+        id_usuario = ObjectId(id_usuario)
+
+        # Verificando se o usuário existe
+        usuario = usuarios.find_one({"_id": id_usuario})
+
+        # Verificando se o usuário existe
+        if usuario == None:
+            return {"erro": "Usuário não encontrado"}, 404
+        
+        # Verifica se o usuário já tem a permissão informada
+        if usuario["permissao"] == dados["permissao"]:
+            return {"erro": "Usuário já tem a permissão informada"}, 400
+        
+        # Atualizando as exceções do usuário
+        usuarios.update_one({"_id": ObjectId(id_usuario)}, {"$set": {"permissao": dados["permissao"]}})
+
+        # Retornando a mensagem de sucesso
+        return {"mensagem": "Usuário atualizado com sucesso"}, 200
     
+    # Caso ocorra algum erro, retorna o erro
+    except Exception as e:
+        return {"erro": str(e)}, 500
+        
+
+# Rota para cadastrar uma porta
 @app.route("/porta", methods = ["POST"])
-def cadastra_porta():
+def cadastrar_porta():
+    # Tenta executar o código
     try:
-        request_data = request.json
-        if "predio" not in request_data or request_data["predio"] == "":
-            return {"mensagem":"Predio da porta não informado"}, 400
-        if "sala" not in request_data or request_data["sala"] == "":
-            return {"mensagem":"Sala da porta não informado"}, 400
-        if "permissao" not in request_data or request_data["permissao"] == "":
-            return {"mensagem": "Nível de permissão da porta não informado"}, 400
-        if "excessoes" not in request_data:
-            return {"mensagem": "Excessoes não informadas"}, 400
+        # Obtendo os dados da porta
+        dados = request.get_json()
+
+        # Verificando se os dados foram informados
+        if "predio" not in dados or dados["predio"] == "":
+            return {"erro": "Prédio da porta não informado"}, 400
+        if "sala" not in dados or dados["sala"] == "":
+            return {"erro": "Sala da porta não informada"}, 400
+        if "permissao" not in dados or dados["permissao"] == "":
+            return {"erro": "Nível de permissão da porta não informado"}, 400
         
+        # Se o campo exceções não foi informado, cria uma lista vazia
+        if "excecoes" not in dados:
+            dados["excecoes"] = []
 
-        predio = request_data["predio"]
-        permissao = request_data["permissao"]
-        sala = request_data["sala"]
-        excessoes = request_data["excessoes"]
+        # Verificar se as exceções são uma lista
+        if type(dados["excecoes"]) != list:
+            return {"erro": "Exceções devem ser uma lista"}, 400
 
-        mydb = client_con["portas"]
-        mycol = mydb["col_portas"]
-        mydict = { "predio": predio,
-                  "sala": sala,
-                  "permissao": permissao,
-                  "excessoes": excessoes}
-        x = mycol.insert_one(mydict)
-
-        return jsonify({"mensagem":"Porta cadastrada"}), 200
+        # Verificando se o prédio, sala e permissão são números inteiros
+        if type(dados["predio"]) != int or type(dados["sala"]) != int or type(dados["permissao"]) != int:
+            return {"erro": "Prédio, sala e permissão devem ser números"}, 400
         
+        # Verificando se a porta já existe
+        filtro = {
+            "predio": dados["predio"],
+            "sala": dados["sala"]
+        }
+
+        # Verificando se a porta já existe
+        porta = portas.find_one(filtro)
+        if porta != None:
+            return {"erro": "Porta já cadastrada"}, 400
+        
+        # Criando o dicionário com os dados da porta
+        porta = {
+            "predio": dados["predio"],
+            "sala": dados["sala"],
+            "permissao": dados["permissao"],
+            "excecoes": dados["excecoes"]
+        }
+
+        # Inserindo a porta no banco de dados
+        id_porta = portas.insert_one(porta).inserted_id
+
+        # Retornando a mensagem de sucesso
+        return {"mensagem": "Porta cadastrada com sucesso", "id_porta": str(id_porta)}, 200
+    
+    # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
     
 
-@app.route("/acesso/usuario/<id_usuario>/porta/<id_porta>", methods = ["GET"])
-def tenta_acesso(id_usuario, id_porta):
+# Rota para editar uma porta
+@app.route("/porta/<id_porta>", methods = ["PUT"])
+def editar_porta(id_porta):
+    # Tenta executar o código
     try:
-        try:
-            # Converta o ID da string para um ObjectId
-            id_usuario = ObjectId(id_usuario)
-            id_porta = ObjectId(id_porta)
-        except Exception as e:
-            return jsonify({"error": "ID inválido"}), 400
+        # Obtendo os dados da porta
+        dados = request.get_json()
+
+        # Verificando se as exceções foram informadas
+        if "excecoes" not in dados:
+            return {"erro": "Exceções não informadas"}, 400
         
-        filtro1 = {
-        "_id": id_usuario
-        }
-        filtro2 = {
-        "_id": id_porta
-        }
-        usuario = usuarios_col.find_one(filtro1)
-        porta = portas_col.find_one(filtro2)
-        nivel_permissao_usuario = usuario["permissao"]
-        nome_usuario = usuario["nome"]
-        nivel_permissao_porta = porta["permissao"]
-        execessoes = porta["excessoes"]
-        if nivel_permissao_usuario >= nivel_permissao_porta:
-            return {"mensagem": "ACESSO LIBERADO"}
-        elif nome_usuario in execessoes:
-            return {"mensagem": "ACESSO LIBERADO"}
-        else:
-            return {"mensagem": "ACESSO NEGADO"}
+        # Verificar se as exceções são uma string
+        if type(dados["excecoes"]) != str:
+            return {"erro": "Exceções devem ser uma string"}, 400
+        
+        # Obtendo as exceções
+        excecoes = dados["excecoes"]
+        
+        # Obtendo o ID da porta
+        id_porta = ObjectId(id_porta)
 
+        # Verificando se a porta existe
+        porta = portas.find_one({"_id": id_porta})
 
+        # Verificando se a porta existe
+        if porta == None:
+            return {"erro": "Porta não encontrada"}, 404
+        
+        # Obtendo as exceções da porta
+        excecoes_porta = porta["excecoes"]
+
+        # Verificando se a exceção já existe
+        if excecoes in excecoes_porta:
+            return {"erro": "Exceção já cadastrada"}, 400
+        
+        # Adicionando a exceção na porta
+        excecoes_porta.append(excecoes)
+
+        # Atualizando a porta no banco de dados
+        portas.update_one({"_id": id_porta}, {"$set": {"excecoes": excecoes_porta}})        
+
+        # Retornando a mensagem de sucesso
+        return {"mensagem": "Porta atualizada com sucesso"}, 200
+    
+    # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
+    
+
+# Rota para excluir uma exceção de uma porta
+@app.route("/porta/<id_porta>", methods = ["DELETE"])
+def excluir_excecao(id_porta):
+    # Tenta executar o código
+    try:
+        # Obtendo dados da porta
+        dados = request.get_json()
+
+        # Verificando se a exceção foi informada
+        if "excecao" not in dados or dados["excecao"] == "":
+            return {"erro": "Exceção não informada"}, 400
+        
+        # Verificar se a exceção é uma string
+        if type(dados["excecao"]) != str:
+            return {"erro": "Exceção deve ser uma string"}, 400
+        
+        # Obtendo a exceção
+        excecao = dados["excecao"]
+
+        # Obtendo o ID da porta
+        id_porta = ObjectId(id_porta)
+
+        # Verificando se a porta existe
+        porta = portas.find_one({"_id": id_porta})
+
+        # Verificando se a porta existe
+        if porta == None:
+            return {"erro": "Porta não encontrada"}, 404
+        
+        # Obtendo as exceções da porta
+        excecoes_porta = porta["excecoes"]
+
+        # Verificando se a exceção existe
+        if excecao not in excecoes_porta:
+            return {"erro": "Exceção não cadastrada"}, 400
+        
+        # Removendo a exceção da porta
+        excecoes_porta.remove(excecao)
+
+        # Atualizando a porta no banco de dados
+        portas.update_one({"_id": id_porta}, {"$set": {"excecoes": excecoes_porta}})
+
+        # Retornando a mensagem de sucesso
+        return {"mensagem": "Exceção excluída com sucesso"}, 200
+    
+    # Caso ocorra algum erro, retorna o erro
+    except Exception as e:
+        return {"erro": str(e)}, 500
+    
+
+# Rota para testar o acesso a uma porta
+@app.route("/acesso/usuario/<id_usuario>/porta/<id_porta>", methods = ["GET"])
+def testar_acesso(id_usuario, id_porta):
+    # Tenta executar o código
+    try:
+        # Obtendo os IDs do usuário e da porta
+        id_usuario = ObjectId(id_usuario)
+        id_porta = ObjectId(id_porta)
+
+        # Encontrando o usuário e a porta no banco de dados
+        usuario = usuarios.find_one({"_id": id_usuario})
+        porta = portas.find_one({"_id": id_porta})
+
+        # Verificando se o usuário e a porta existem
+        if usuario == None:
+            return {"erro": "Usuário não encontrado"}, 404
+        
+        if porta == None:
+            return {"erro": "Porta não encontrada"}, 404
+        
+        # Obtendo o nível de permissão do usuário e da porta
+        nivel_permissao_usuario = usuario["permissao"]
+        nivel_permissao_porta = porta["permissao"]
+
+        # Obtendo o login do usuário e a lista de exceções da porta
+        login_usuario = usuario["login"]
+        excessoes = porta["excecoes"]
+
+        # Verificando se o usuário tem permissão para acessar a porta
+        if nivel_permissao_usuario >= nivel_permissao_porta:
+            acesso = "ACESSO LIBERADO"
+        
+        # Verificando se o usuário está na lista de exceções
+        elif login_usuario in excessoes:
+            acesso = "ACESSO LIBERADO"
+
+        # Caso o usuário não tenha permissão, retorna a mensagem de erro
+        else:
+            acesso = "ACESSO NEGADO"
+        
+        # Obtendo a data e hora atual
+        data_hora = datetime.now()
+
+        # Criando o dicionário com os dados do acesso
+        relatorio = {
+            "login_usuario": login_usuario,
+            "id_usuario": str(id_usuario),
+            "id_porta": str(id_porta),
+            "data_hora": data_hora,
+            "acesso": acesso
+        }
+
+        # Inserindo o relatório no banco de dados
+        relatorios.insert_one(relatorio).inserted_id
+
+        # Retornando a mensagem de sucesso
+        return {"mensagem": acesso}, 200
+        
+    # Caso ocorra algum erro, retorna o erro
+    except Exception as e:
+        return {"erro": str(e)}, 500
+    
+
+# Rota para gerar um QR Code
+@app.route("/qrcode/usuario/<id_usuario>/porta/<id_porta>", methods = ["GET"])
+def gerar_qrcode(id_usuario, id_porta):
+    # Tenta executar o código
+    try:
+        # Obtendo os IDs do usuário e da porta
+        id_usuario = ObjectId(id_usuario)
+        id_porta = ObjectId(id_porta)
+
+        # Encontrando o usuário e a porta no banco de dados
+        usuario = usuarios.find_one({"_id": id_usuario})
+        porta = portas.find_one({"_id": id_porta})
+
+        # Verificando se o usuário e a porta existem
+        if usuario == None:
+            return {"erro": "Usuário não encontrado"}, 404
+        
+        if porta == None:
+            return {"erro": "Porta não encontrada"}, 404
+        
+        # Obtendo o login do usuário e a lista de exceções da porta
+        login_usuario = usuario["login"]
+        excessoes = porta["excecoes"]
+
+        # Obtendo a data e hora atual
+        data_hora = datetime.now()
+
+        # Criando o dicionário com os dados do QR Code
+        qrcode = {
+            "login_usuario": login_usuario,
+            "excecoes": excessoes,
+            "data_hora": data_hora
+        }
+
+        # Inserindo o QR Code no banco de dados
+        id_qrcode = portas.insert_one(qrcode).inserted_id
+
+        # Retornando a mensagem de sucesso
+        return {"mensagem": "QR Code gerado com sucesso", "id_qrcode": str(id_qrcode)}, 200
+    
+    # Caso ocorra algum erro, retorna o erro
+    except Exception as e:
+        return {"erro": str(e)}, 500
+        
 
 if __name__ == '__main__':
     app.run(debug=True)
