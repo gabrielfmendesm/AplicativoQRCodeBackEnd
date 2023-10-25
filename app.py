@@ -272,63 +272,53 @@ def excluir_excecao(id_porta):
     
 
 # Rota para testar o acesso a uma porta
-@app.route("/acesso/usuario/<id_usuario>/porta/<id_porta>", methods = ["GET"])
-def testar_acesso(id_usuario, id_porta):
+@app.route("/acesso/usuario/<login_usuario>/predio/<numero_predio>/sala/<numero_sala>", methods = ["GET"])
+def testar_acesso(login_usuario, numero_predio, numero_sala):
     # Tenta executar o código
     try:
-        # Obtendo os IDs do usuário e da porta
-        id_usuario = ObjectId(id_usuario)
-        id_porta = ObjectId(id_porta)
+        # Obtendo o usuário
+        usuario = usuarios.find_one({"login": login_usuario})
 
-        # Encontrando o usuário e a porta no banco de dados
-        usuario = usuarios.find_one({"_id": id_usuario})
-        porta = portas.find_one({"_id": id_porta})
-
-        # Verificando se o usuário e a porta existem
+        # Verificando se o usuário existe
         if usuario == None:
             return {"erro": "Usuário não encontrado"}, 404
         
+        # Obtendo a porta
+        porta = portas.find_one({"predio": int(numero_predio), "sala": int(numero_sala)})
+
+        # Verificando se a porta existe
         if porta == None:
             return {"erro": "Porta não encontrada"}, 404
         
-        # Obtendo o nível de permissão do usuário e da porta
-        nivel_permissao_usuario = usuario["permissao"]
-        nivel_permissao_porta = porta["permissao"]
+        # Obtendo a permissão do usuário e da porta
+        permissao_usuario = usuario["permissao"]
+        permissao_porta = porta["permissao"]
 
-        # Obtendo o login do usuário e a lista de exceções da porta
-        login_usuario = usuario["login"]
-        excessoes = porta["excecoes"]
+        # Obtendo as exceções da porta
+        excecoes_porta = porta["excecoes"]
 
-        # Obtendo a data e hora atual
-        data_hora = datetime.now()
-
-        # Verificando se o usuário tem permissão para acessar a porta
-        if nivel_permissao_usuario >= nivel_permissao_porta:
-            acesso = "ACESSO LIBERADO"
-        
-        # Verificando se o usuário está na lista de exceções
-        elif login_usuario in excessoes:
-            acesso = "ACESSO LIBERADO"
-
-        # Caso o usuário não tenha permissão, retorna a mensagem de erro
+        # Verificando se o usuário tem acesso à porta
+        if permissao_usuario >= permissao_porta:
+            acesso = "ACESSO PERMITIDO"
+        elif login_usuario in excecoes_porta:
+            acesso = "ACESSO PERMITIDO"
         else:
             acesso = "ACESSO NEGADO"
-
+        
         # Criando o dicionário com os dados do acesso
         relatorio = {
             "login_usuario": login_usuario,
-            "id_usuario": str(id_usuario),
-            "id_porta": str(id_porta),
-            "data_hora": data_hora,
-            "acesso": acesso
+            "numero_predio": numero_predio,
+            "numero_sala": numero_sala,
+            "data_hora": datetime.now()
         }
 
-        # Inserindo o relatório no banco de dados
+        # Inserindo o acesso no banco de dados
         relatorios.insert_one(relatorio).inserted_id
 
         # Retornando a mensagem de sucesso
         return {"mensagem": acesso}, 200
-        
+
     # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
