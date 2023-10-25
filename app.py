@@ -355,7 +355,7 @@ def gerar_qrcode(login_usuario):
         }
 
         # Gere o QR Code a partir dos dados
-        qr = qrcode(dados, mode="raw", box_size=4, border=2)
+        qr = qrcode(dados, mode="raw", box_size=12, border=6)
 
         # Criando a resposta
         response = make_response(qr)
