@@ -1,8 +1,10 @@
-from flask import Flask, request
+from flask import Flask, request, make_response
+from flask_qrcode import QRcode
 from bson.objectid import ObjectId
 from datetime import datetime
 import pymongo
 import certifi
+
 
 # Conectando ao servidor do MongoDB
 str_con = "mongodb+srv://admin:admin@aplicativoqrcode.mmjtjk8.mongodb.net/?retryWrites=true&w=majority"
@@ -13,8 +15,9 @@ usuarios = client_con.db_aplicativo.usuarios
 portas = client_con.db_aplicativo.portas
 relatorios = client_con.db_aplicativo.relatorios
 
-# Criando o app Flask
+# Criando o app Flask e o objeto QRcode
 app = Flask("Aplicativo QR Code")
+qrcode = QRcode(app)
 
 
 # Rota para cadastrar um usuário
@@ -333,49 +336,40 @@ def testar_acesso(id_usuario, id_porta):
     
 
 # Rota para gerar um QR Code
-@app.route("/qrcode/usuario/<id_usuario>/porta/<id_porta>", methods = ["GET"])
-def gerar_qrcode(id_usuario, id_porta):
+@app.route("/qrcode/usuario/<id_usuario>", methods = ["GET"])
+def gerar_qrcode(id_usuario):
     # Tenta executar o código
     try:
-        # Obtendo os IDs do usuário e da porta
+        # Obtendo o ID do usuário
         id_usuario = ObjectId(id_usuario)
-        id_porta = ObjectId(id_porta)
 
-        # Encontrando o usuário e a porta no banco de dados
+        # Encontrando o usuário no banco de dados
         usuario = usuarios.find_one({"_id": id_usuario})
-        porta = portas.find_one({"_id": id_porta})
 
-        # Verificando se o usuário e a porta existem
+        # Verificando se o usuário existe
         if usuario == None:
             return {"erro": "Usuário não encontrado"}, 404
         
-        if porta == None:
-            return {"erro": "Porta não encontrada"}, 404
-        
-        # Obtendo o login do usuário e a lista de exceções da porta
-        login_usuario = usuario["login"]
-        excessoes = porta["excecoes"]
-
-        # Obtendo a data e hora atual
-        data_hora = datetime.now()
-
-        # Criando o dicionário com os dados do QR Code
-        qrcode = {
-            "login_usuario": login_usuario,
-            "excecoes": excessoes,
-            "data_hora": data_hora
+        # Criando o diciário com os dados do usuário
+        dados = {
+            "login": usuario["login"],
+            "nome": usuario["nome"],
+            "permissao": usuario["permissao"],
+            "data_hora": datetime.now()
         }
 
-        # Inserindo o QR Code no banco de dados
-        id_qrcode = portas.insert_one(qrcode).inserted_id
+        # Gere o QR Code a partir dos dados
+        qr = qrcode(dados, mode="raw", box_size=4, border=2)
 
-        # Retornando a mensagem de sucesso
-        return {"mensagem": "QR Code gerado com sucesso", "id_qrcode": str(id_qrcode)}, 200
-    
-    # Caso ocorra algum erro, retorna o erro
+        # Criando a resposta
+        response = make_response(qr)
+        response.headers["Content-Type"] = "image/png"
+
+        return response
+
     except Exception as e:
         return {"erro": str(e)}, 500
-        
+
 
 if __name__ == '__main__':
     app.run(debug=True)
