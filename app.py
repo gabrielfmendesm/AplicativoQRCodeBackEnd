@@ -65,7 +65,7 @@ def cadastrar_usuario():
         id_usuario = usuarios.insert_one(usuario).inserted_id
 
         # Retornando a mensagem de sucesso
-        return {"mensagem": "Usuário cadastrado com sucesso", "id_usuario": str(id_usuario)}, 200
+        return {"mensagem": "Usuário cadastrado com sucesso", "id_usuario": str(id_usuario)}, 201
     
     # Caso ocorra algum erro, retorna o erro
     except Exception as e:
@@ -164,7 +164,7 @@ def cadastrar_porta():
         id_porta = portas.insert_one(porta).inserted_id
 
         # Retornando a mensagem de sucesso
-        return {"mensagem": "Porta cadastrada com sucesso", "id_porta": str(id_porta)}, 200
+        return {"mensagem": "Porta cadastrada com sucesso", "id_porta": str(id_porta)}, 201
     
     # Caso ocorra algum erro, retorna o erro
     except Exception as e:
