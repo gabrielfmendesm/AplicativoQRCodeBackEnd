@@ -1,9 +1,11 @@
 from flask import Flask, request, make_response
-from flask_qrcode import QRcode
 from bson.objectid import ObjectId
 from datetime import datetime
 import pymongo
 import certifi
+import qrcode
+import json
+import io
 
 # Conectando ao servidor do MongoDB
 str_con = "mongodb+srv://admin:admin@aplicativoqrcode.mmjtjk8.mongodb.net/?retryWrites=true&w=majority"
@@ -16,8 +18,6 @@ relatorios = client_con.db_aplicativo.relatorios
 
 # Criando o app Flask e o objeto QRcode
 app = Flask("Aplicativo QR Code")
-qrcode = QRcode(app)
-
 
 # Rota para cadastrar um usuário
 @app.route("/usuario", methods = ["POST"])
@@ -310,7 +310,8 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
             "login_usuario": login_usuario,
             "numero_predio": numero_predio,
             "numero_sala": numero_sala,
-            "data_hora": datetime.now()
+            "data_hora": datetime.now(),
+            "acesso": acesso
         }
 
         # Inserindo o acesso no banco de dados
@@ -328,7 +329,7 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
 
 
 # Rota para gerar um QR Code
-@app.route("/qrcode/usuario/<login_usuario>", methods = ["GET"])
+@app.route("/qrcode/usuario/<login_usuario>", methods=["GET"])
 def gerar_qrcode(login_usuario):
     # Tenta executar o código
     try:
@@ -336,22 +337,40 @@ def gerar_qrcode(login_usuario):
         usuario = usuarios.find_one({"login": login_usuario})
 
         # Verificando se o usuário existe
-        if usuario == None:
+        if usuario is None:
             return {"erro": "Usuário não encontrado"}, 404
 
-        # Criando o diciário com os dados do usuário
+        # Criando o dicionário com os dados do usuário
         dados = {
             "login": usuario["login"],
             "nome": usuario["nome"],
             "permissao": usuario["permissao"],
-            "data_hora": datetime.now()
+            "data_hora": str(datetime.now())
         }
 
-        # Gere o QR Code a partir dos dados
-        qr = qrcode(dados, mode="raw", box_size=12, border=6)
+        # Serializa os dados em formato JSON
+        json_data = json.dumps(dados)
 
-        # Criando a resposta
-        response = make_response(qr)
+        # Gere o QR Code a partir dos dados serializados em JSON
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=12,
+            border=6,
+        )
+        qr.add_data(json_data)
+        qr.make(fit=True)
+
+        # Crie uma imagem a partir do QR code
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Crie uma resposta do Flask com a imagem em formato PNG
+        img_io = io.BytesIO()
+        img.save(img_io, 'PNG')
+        img_io.seek(0)
+
+        # Retornando a resposta
+        response = make_response(img_io.read())
         response.headers["Content-Type"] = "image/png"
 
         return response
