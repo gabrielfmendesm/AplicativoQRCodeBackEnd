@@ -316,8 +316,11 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
         # Inserindo o acesso no banco de dados
         relatorios.insert_one(relatorio).inserted_id
 
-        # Retornando a mensagem de sucesso
-        return {"mensagem": acesso}, 200
+        # Retornando a mensagens
+        if acesso == "ACESSO PERMITIDO":
+            return {"mensagem": acesso}, 200
+        else:
+            return {"mensagem": acesso}, 403
 
     # Caso ocorra algum erro, retorna o erro
     except Exception as e:
