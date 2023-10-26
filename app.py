@@ -304,13 +304,13 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
             acesso = "ACESSO PERMITIDO"
         else:
             acesso = "ACESSO NEGADO"
-        
+        data = str(datetime.now())
         # Criando o dicionário com os dados do acesso
         relatorio = {
             "login_usuario": login_usuario,
             "numero_predio": numero_predio,
             "numero_sala": numero_sala,
-            "data_hora": datetime.now(),
+            "data_hora": data[:9],
             "acesso": acesso
         }
 
@@ -378,6 +378,42 @@ def gerar_qrcode(login_usuario):
     except Exception as e:
         return {"erro": str(e)}, 500
 
+@app.route("/relatorios", methods = ["GET"])
+def gerar_relatorios():
+    # Tenta executar o código
+    try:
+        # Verifica se o método HTTP é um GET
+        if request.method != "GET":
+            return {"erro": "Método HTTP não permitido"}, 405
+
+        # Verifica se a solicitação contém dados JSON
+        if not request.is_json:
+            return {"erro": "Solicitação não contém dados JSON"}, 400
+
+        dados = request.get_json()
+        data = dados.get("data")
+        numero_sala = dados.get("sala")
+        predio = dados.get("predio")
+        print(1)
+
+        if data is None or numero_sala is None or predio is None:
+            return {"erro": "Campos data, sala e predio são obrigatórios"}, 400
+        print(2)
+        # Certifique-se de ter uma conexão válida com o MongoDB configurada aqui
+        # relatorios = db.relatorios (ou algo similar)
+
+        quantidade_acessos_permitidos = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": predio, "acesso": "ACESSO PERMITIDO"})))
+        quantidade_acessos_negados = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": predio, "acesso": "ACESSO NEGADO"})))
+        print(3)
+        resposta = {
+            "quantidade_acessos_permitidos": quantidade_acessos_permitidos,
+            "quantidade_acessos_negados": quantidade_acessos_negados
+        }
+
+        return resposta, 200
+
+    except Exception as e:
+        return {"erro": str(e)}, 500
 
 if __name__ == '__main__':
     app.run(debug=True)
