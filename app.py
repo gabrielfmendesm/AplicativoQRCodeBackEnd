@@ -15,6 +15,7 @@ client_con = pymongo.MongoClient(str_con, tlsCAFile=certifi.where())
 usuarios = client_con.db_aplicativo.usuarios
 portas = client_con.db_aplicativo.portas
 relatorios = client_con.db_aplicativo.relatorios
+presencas = client_con.db_aplicativo.presencas
 
 # Criando o app Flask e o objeto QRcode
 app = Flask("Aplicativo QR Code")
@@ -304,13 +305,19 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
             acesso = "ACESSO PERMITIDO"
         else:
             acesso = "ACESSO NEGADO"
-        data = str(datetime.now())
+
+        # Data atual
+        data_hora_atual = datetime.now()
+
+        # Data atual formatada
+        data_formatada = data_hora_atual.strftime("%Y/%m/%d %H:%M")
+
         # Criando o dicionário com os dados do acesso
         relatorio = {
             "login_usuario": login_usuario,
             "numero_predio": numero_predio,
             "numero_sala": numero_sala,
-            "data_hora": data[:9],
+            "data_hora": data_formatada,
             "acesso": acesso
         }
 
@@ -322,6 +329,43 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
             return {"mensagem": acesso}, 200
         else:
             return {"mensagem": acesso}, 403
+
+    # Caso ocorra algum erro, retorna o erro
+    except Exception as e:
+        return data_formatada
+    
+
+# Rota para marcar presença
+@app.route("/presenca/usuario/<login_usuario>", methods=["GET"])
+def marcar_presenca(login_usuario):
+    # Tenta executar o código
+    try:
+        # Obtendo o usuário
+        usuario = usuarios.find_one({"login": login_usuario})
+
+        # Verificando se o usuário existe
+        if usuario is None:
+            return {"erro": "Usuário não encontrado"}, 404
+
+        # Data atual
+        data_hora_atual = datetime.now()
+
+        # Data atual formatada
+        data_formatada = data_hora_atual.strftime("%Y/%m/%d %H:%M")
+
+        # Criando dicionario com os dados da presença
+        presenca = {
+            "login_usuario": usuario["login"],
+            "nome": usuario["nome"],
+            "permissao": usuario["permissao"],
+            "data_hora": data_formatada
+        }
+
+        # Inserindo a presenca no banco de dados
+        presencas.insert_one(presenca).inserted_id
+
+        # Retornando mensagem de sucesso
+        return {"mensagem": "Presença cadastrada com sucesso."}, 201
 
     # Caso ocorra algum erro, retorna o erro
     except Exception as e:
@@ -340,12 +384,9 @@ def gerar_qrcode(login_usuario):
         if usuario is None:
             return {"erro": "Usuário não encontrado"}, 404
 
-        # Criando o dicionário com os dados do usuário
+        # Criando o dicionário com o login do usuário
         dados = {
-            "login": usuario["login"],
-            "nome": usuario["nome"],
-            "permissao": usuario["permissao"],
-            "data_hora": str(datetime.now())
+            "login": usuario["login"]
         }
 
         # Serializa os dados em formato JSON
@@ -378,39 +419,41 @@ def gerar_qrcode(login_usuario):
     except Exception as e:
         return {"erro": str(e)}, 500
 
+
+# Rota para gerar relatórios
 @app.route("/relatorios", methods = ["GET"])
 def gerar_relatorios():
     # Tenta executar o código
     try:
-        # Verifica se o método HTTP é um GET
-        if request.method != "GET":
-            return {"erro": "Método HTTP não permitido"}, 405
-
-        # Verifica se a solicitação contém dados JSON
-        if not request.is_json:
-            return {"erro": "Solicitação não contém dados JSON"}, 400
-
+        # Obtendo dados da porta
         dados = request.get_json()
+
+        # Obtendo a data
         data = dados.get("data")
+
+        # Obtendo o número da sala
         numero_sala = dados.get("sala")
-        predio = dados.get("predio")
-        print(1)
 
-        if data is None or numero_sala is None or predio is None:
+        # Obtendo o número do prédio
+        numero_predio = dados.get("predio")
+        
+        # Verificando se os dados foram informados
+        if data == None or numero_sala == None or numero_predio == None:
             return {"erro": "Campos data, sala e predio são obrigatórios"}, 400
-        print(2)
-        # Certifique-se de ter uma conexão válida com o MongoDB configurada aqui
-        # relatorios = db.relatorios (ou algo similar)
 
-        quantidade_acessos_permitidos = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": predio, "acesso": "ACESSO PERMITIDO"})))
-        quantidade_acessos_negados = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": predio, "acesso": "ACESSO NEGADO"})))
-        print(3)
-        resposta = {
+        # Contando a quantidade de acessos permitidos
+        quantidade_acessos_permitidos = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": numero_predio, "acesso": "ACESSO PERMITIDO"})))
+        
+        # Contando a quantidade de acessos negados
+        quantidade_acessos_negados = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": numero_predio, "acesso": "ACESSO NEGADO"})))
+        
+        # Retornando uma resposta
+        response = {
             "quantidade_acessos_permitidos": quantidade_acessos_permitidos,
             "quantidade_acessos_negados": quantidade_acessos_negados
         }
 
-        return resposta, 200
+        return response
 
     except Exception as e:
         return {"erro": str(e)}, 500
