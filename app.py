@@ -311,8 +311,11 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
 
         # Data atual formatada
         data_formatada = data_hora_atual.strftime("%Y/%m/%d %H:%M")
+
+        # Obtendo a data e a hora
         data = data_formatada[:9]
         hora = data_formatada[11:]
+
         # Criando o dicionário com os dados do acesso
         relatorio = {
             "login_usuario": login_usuario,
