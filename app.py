@@ -313,7 +313,7 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
         data_formatada = data_hora_atual.strftime("%Y/%m/%d %H:%M")
 
         # Obtendo a data e a hora
-        data = data_formatada[:9]
+        data = data_formatada[:10]
         hora = data_formatada[11:]
 
         # Criando o dicionário com os dados do acesso
@@ -358,12 +358,17 @@ def marcar_presenca(login_usuario):
         # Data atual formatada
         data_formatada = data_hora_atual.strftime("%Y/%m/%d %H:%M")
 
+        # Obtendo a data e a hora
+        data = data_formatada[:10]
+        hora = data_formatada[11:]
+
         # Criando dicionario com os dados da presença
         presenca = {
             "login_usuario": usuario["login"],
             "nome": usuario["nome"],
             "permissao": usuario["permissao"],
-            "data_hora": data_formatada
+            "data": data,
+            "hora": hora
         }
 
         # Inserindo a presenca no banco de dados
@@ -444,7 +449,7 @@ def gerar_relatorios():
         
         # Verificando se os dados foram informados
         if data == None or numero_sala == None or numero_predio == None:
-            return {"erro": "Campos data, sala e predio são obrigatórios"}, 400
+            return {"erro": "Data, sala e prédio devem ser informados"}, 400
 
         # Contando a quantidade de acessos permitidos
         quantidade_acessos_permitidos = len(list(relatorios.find({"data": data, "numero_sala": numero_sala, "numero_predio": numero_predio, "acesso": "ACESSO PERMITIDO"})))
