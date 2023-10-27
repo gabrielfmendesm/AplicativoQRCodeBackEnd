@@ -311,13 +311,15 @@ def testar_acesso(login_usuario, numero_predio, numero_sala):
 
         # Data atual formatada
         data_formatada = data_hora_atual.strftime("%Y/%m/%d %H:%M")
-
+        data = data_formatada[:9]
+        hora = data_formatada[11:]
         # Criando o dicionário com os dados do acesso
         relatorio = {
             "login_usuario": login_usuario,
             "numero_predio": numero_predio,
             "numero_sala": numero_sala,
-            "data_hora": data_formatada,
+            "data": data,
+            "hora": hora,
             "acesso": acesso
         }
 
@@ -442,10 +444,10 @@ def gerar_relatorios():
             return {"erro": "Campos data, sala e predio são obrigatórios"}, 400
 
         # Contando a quantidade de acessos permitidos
-        quantidade_acessos_permitidos = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": numero_predio, "acesso": "ACESSO PERMITIDO"})))
+        quantidade_acessos_permitidos = len(list(relatorios.find({"data": data, "numero_sala": numero_sala, "numero_predio": numero_predio, "acesso": "ACESSO PERMITIDO"})))
         
         # Contando a quantidade de acessos negados
-        quantidade_acessos_negados = len(list(relatorios.find({"data_hora": data, "numero_sala": numero_sala, "numero_predio": numero_predio, "acesso": "ACESSO NEGADO"})))
+        quantidade_acessos_negados = len(list(relatorios.find({"data": data, "numero_sala": numero_sala, "numero_predio": numero_predio, "acesso": "ACESSO NEGADO"})))
         
         # Retornando uma resposta
         response = {
