@@ -6,6 +6,7 @@ import certifi
 import qrcode
 import json
 import io
+from bson import json_util
 
 # Conectando ao servidor do MongoDB
 str_con = "mongodb+srv://admin:admin@aplicativoqrcode.mmjtjk8.mongodb.net/?retryWrites=true&w=majority"
@@ -447,28 +448,30 @@ def gerar_relatorios():
         print(data)
         # Consulta para acessos permitidos
         acessos_permitidos_cursor = relatorios.find({"data": f'{str(data)}', "acesso": "ACESSO PERMITIDO"})
-        print(acessos_permitidos_cursor)
         # Converter o Cursor em uma lista de dicionários
         acessos_permitidos_list = list(acessos_permitidos_cursor)
-        print(acessos_permitidos_list)
+        for i in acessos_permitidos_list:
+            i["_id"] = str(i["_id"])
         # Serializar a lista em JSON
-        acessos_permitidos_json = json.dumps(acessos_permitidos_list)
-        print(acessos_permitidos_json)
+        # acessos_permitidos_json = json.loads(json_util.dumps(acessos_permitidos_cursor))
         # Consulta para acessos negados
         acessos_negados_cursor = relatorios.find({"data": data, "acesso": "ACESSO NEGADO"})
         
         # Converter o Cursor em uma lista de dicionários
         acessos_negados_list = list(acessos_negados_cursor)
-
+        for i in acessos_negados_list:
+            i["_id"] = str(i["_id"])
         # Serializar a lista em JSON
-        acessos_negados_json = json.dumps(acessos_negados_list)
+        # acessos_negados_json = json.loads(json_util.dumps(acessos_negados_cursor))
+
         # Retornando uma resposta
         response = {
-            "acessos_permitidos": acessos_permitidos_json,
-            "acessos_negados": acessos_negados_json
+            "acessos_permitidos": acessos_permitidos_list,
+            "acessos_negados": acessos_negados_list
         }
-
-        return response
+        print(acessos_permitidos_list)
+        print(acessos_negados_list)
+        return response, 200
 
     except Exception as e:
         return {"erro": str(e)}, 500
