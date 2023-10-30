@@ -420,56 +420,120 @@ def gerar_qrcode(login_usuario):
         img.save(img_io, 'PNG')
         img_io.seek(0)
 
-        # Retornando a resposta
+        # Crie uma resposta do Flask com a imagem em formato PNG
         response = make_response(img_io.read())
         response.headers["Content-Type"] = "image/png"
 
+        # Retorne a resposta
         return response
 
+    # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
 
 
-
+# Rota para gerar relatórios
 @app.route("/relatorios", methods = ["GET"])
 def gerar_relatorios():
     # Tenta executar o código
     try:
         # Obtendo dados da porta
         dados = request.get_json()
+
+        # Obtendo a data
+        data = dados.get("data")
+
+        # Obtendo o número da sala
+        numero_sala = dados.get("sala")
+
+        # Obtendo o número do prédio
+        numero_predio = dados.get("predio")
+        
+        # Verificando se os dados foram informados
+        if data == None or numero_sala == None or numero_predio == None:
+            return {"erro": "Data, sala e prédio devem ser informados"}, 400
+        
+        # Organizar o relatório por prédio e sala
+        relatorios_organizados = {}
+
+        # Obtendo o relatório
+        relatorios_dia = list(relatorios.find({"data": data, "numero_predio": numero_predio, "numero_sala": numero_sala}))
+
+        # Verificando se o relatório existe
+        if relatorios_dia == []:
+            return {"erro": "Relatório não encontrado"}, 404
+
+        # Percorrendo o relatório do dia
+        for relatorio in relatorios_dia:
+            # Obtendo os dados do relatório
+            acesso = relatorio['acesso']
+
+            # Verifica se o acesso já está no dicionário do usuário
+            if acesso in relatorios_organizados:
+                relatorios_organizados[acesso] += 1
+            else:
+                relatorios_organizados[acesso] = 1
+
+        # Criando a estrutura de dados do relatório
+        response = {
+            "relatorio": relatorios_organizados
+        }
+
+        # Retornando o relatório
+        return response
+
+    # Caso ocorra algum erro, retorna o erro
+    except Exception as e:
+        return {"erro": str(e)}, 500
+    
+
+# Rota para gerar relatórios gerais
+@app.route("/relatorios/gerais", methods=["GET"])
+def gerar_relatorios_gerais():
+    # Tenta executar o código
+    try:
+        # Obtendo dados da porta
+        dados = request.get_json()
+
         # Obtendo a data
         data = dados.get("data")
         
-        # Verificando se os dados foram informados
-        if data == None:
-            return {"erro": "Campo data é obrigatório"}, 400
-        
-        print(data)
-        # Consulta para acessos permitidos
-        acessos_permitidos_cursor = relatorios.find({"data": f'{str(data)}', "acesso": "ACESSO PERMITIDO"})
-        print(acessos_permitidos_cursor)
-        # Converter o Cursor em uma lista de dicionários
-        acessos_permitidos_list = list(acessos_permitidos_cursor)
-        print(acessos_permitidos_list)
-        # Serializar a lista em JSON
-        acessos_permitidos_json = json.dumps(acessos_permitidos_list)
-        print(acessos_permitidos_json)
-        # Consulta para acessos negados
-        acessos_negados_cursor = relatorios.find({"data": data, "acesso": "ACESSO NEGADO"})
-        
-        # Converter o Cursor em uma lista de dicionários
-        acessos_negados_list = list(acessos_negados_cursor)
+        # Obtendo os relatórios do dia
+        relatorios_dia = list(relatorios.find({"data": data}))
 
-        # Serializar a lista em JSON
-        acessos_negados_json = json.dumps(acessos_negados_list)
-        # Retornando uma resposta
+        # Organizar os relatórios por prédio e sala
+        relatorios_organizados = {}
+
+        # Percorrendo os relatórios do dia
+        for relatorio in relatorios_dia:
+            # Obtendo os dados do relatório
+            prédio = relatorio['numero_predio']
+            sala = relatorio['numero_sala']
+            acesso = relatorio['acesso']
+
+            # Verifica se o prédio já está no dicionário
+            if prédio not in relatorios_organizados:
+                relatorios_organizados[prédio] = {}
+
+            # Verifica se a sala já está no dicionário do prédio
+            if sala not in relatorios_organizados[prédio]:
+                relatorios_organizados[prédio][sala] = {}
+
+            # Verifica se o acesso já está no dicionário da sala
+            if acesso in relatorios_organizados[prédio][sala]:
+                relatorios_organizados[prédio][sala][acesso] += 1
+            else:
+                relatorios_organizados[prédio][sala][acesso] = 1
+
+        # Criando a estrutura de dados do relatório
         response = {
-            "acessos_permitidos": acessos_permitidos_json,
-            "acessos_negados": acessos_negados_json
+            "relatorios": relatorios_organizados
         }
 
+        # Retornando o relatório
         return response
 
+    # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
 
