@@ -6,7 +6,6 @@ import certifi
 import qrcode
 import json
 import io
-from bson import json_util
 
 # Conectando ao servidor do MongoDB
 str_con = "mongodb+srv://admin:admin@aplicativoqrcode.mmjtjk8.mongodb.net/?retryWrites=true&w=majority"
