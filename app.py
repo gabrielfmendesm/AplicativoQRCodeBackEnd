@@ -380,6 +380,58 @@ def marcar_presenca(login_usuario):
     # Caso ocorra algum erro, retorna o erro
     except Exception as e:
         return {"erro": str(e)}, 500
+    
+
+# Rota para obter presenças
+@app.route("/presencas", methods=["GET"])
+def obter_presencas():
+    # Tenta executar o código
+    try:
+        # Obtendo dados do json
+        dados = request.get_json()
+
+        # Obtendo a data
+        data = dados.get("data")
+
+        # Verificando se a data foi informada
+        if data == None:
+            return {"erro": "Data não informada"}, 400
+        
+        # Obtendo as presenças
+        presencas_dia = list(presencas.find({"data": data}))
+
+        # Organizar as presenças por usuário
+        presencas_organizadas = {}
+
+        # Percorrendo as presenças do dia
+        for presenca in presencas_dia:
+            # Obtendo os dados da presença
+            login_usuario = presenca["login_usuario"]
+            nome = presenca["nome"]
+            permissao = presenca["permissao"]
+            data = presenca["data"]
+            hora = presenca["hora"]
+            
+            # Organizando as presenças por usuário
+            presencas_organizadas[login_usuario] = {
+                    "login_usuario": login_usuario,
+                    "nome": nome,
+                    "permissao": permissao,
+                    "data": data,
+                    "hora": hora,
+            }
+
+        # Criando a estrutura de dados das presenças
+        response = {
+            "presencas": presencas_organizadas
+        }
+
+        # Retornando as presenças
+        return response 
+    
+    # Caso ocorra algum erro, retorna o erro
+    except Exception as e:
+        return {"erro": str(e)}, 500
 
 
 # Rota para gerar um QR Code
