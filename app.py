@@ -26,6 +26,11 @@ app = Flask("Aplicativo QR Code")
 def teste():
     return {"mensagem": "Teste de API"}
 
+# Rota teste
+@app.route("/teste", methods = ["GET"])
+def teste2():
+    return {"mensagem": "Teste de API 2"}
+
 
 # Rota para cadastrar um usuário
 @app.route("/usuario", methods = ["POST"])
