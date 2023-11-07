@@ -20,6 +20,12 @@ presencas = client_con.db_aplicativo.presencas
 # Criando o app Flask e o objeto QRcode
 app = Flask("Aplicativo QR Code")
 
+# Rota para testar o funcionamento do servidor
+@app.route("/", methods = ["GET"])
+def testar_servidor():
+    return {"mensagem": "Servidor funcionando"}
+
+
 # Rota para cadastrar um usuário
 @app.route("/usuario", methods = ["POST"])
 def cadastrar_usuario():
